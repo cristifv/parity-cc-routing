@@ -1,0 +1,414 @@
+// re.state's records (PLAN §5.5, phase 6). A record is the latest full state of one object, keyed
+// `{tenant}/{kind}/{id}` in the zone-wide compacted topic `re.state` (a Kafka tombstone, a null
+// value, removes the object). The bin-wide keys start with `~`.
+//
+// This file is a contract between releases: bins of release N and N-1 read each other's records
+// during tenant moves. Change it additively only (new fields, new kinds); `buf breaking` against
+// src/state/baseline/state.proto guards it (scripts/ci.sh). Enumerations are carried as their
+// numeric values in the routing.v1 / agents.v1 contracts (int32), and unacknowledged Watch messages
+// as the serialized contract messages, so this file never imports the contracts.
+//
+// Never in a record: a callback's number (PII stays in Postgres only, CR-107), personal data of
+// any kind, secrets.
+syntax = "proto3";
+
+package parity.cc_routing.state.v1;
+
+// One object's state, as written by the owning bin's leader.
+message Record {
+  // 1 for this file.
+  uint32 schema_version = 1;
+  // The tenant's epoch in tp/tenants/{tenant} when the record was written (0: the seed's static
+  // assignment). A reader ignores a record whose epoch is below the newest it has seen for the tenant.
+  uint64 tenant_epoch = 2;
+  // The writer's leader_epoch (the create revision of re/{bin}/leader).
+  uint64 leader_epoch = 3;
+  // The writer's wall clock.
+  int64 written_at_ms = 4;
+  // What the record holds; the key's kind names the same case.
+  oneof body {
+    // kind `agent`: an agent's state, attachment, outbox and active sets.
+    Agent agent = 10;
+    // kind `entry`: a queue entry.
+    Entry entry = 11;
+    // kind `offer`: a live offer.
+    Offer offer = 12;
+    // kind `res`: a reservation (live or ended, until pruned).
+    Reservation res = 13;
+    // kind `out`: an interaction's owner, fences and unacknowledged routing Watch messages.
+    Interaction out = 14;
+    // kind `cmd`: a command result kept 10 min (idempotency by command_id).
+    Command cmd = 15;
+    // kind `plan`: the tenant's config.routing in force.
+    Plan plan = 16;
+    // kind `pin`: an agent's config.routing_pin (or only the newest version seen, after an unpin).
+    Pin pin = 17;
+    // kind `cb`: a callback's routing state (the number stays in Postgres).
+    Callback cb = 18;
+    // kind `queue`: a queue's running statistics (handle time, the 15-minute bucket so far).
+    QueueStats queue = 19;
+    // kind `handover`: the leaving bin's marker for a tenant move (ARCH §3.20).
+    Handover handover = 20;
+    // `~bin/{bin}/meta`: the bin's incarnation.
+    Meta meta = 21;
+    // `~fence/{bin}/{partition}`: a new leader's read-to-the-end barrier.
+    Fence fence = 22;
+    // kind `opt` (phase 5): the optimizer's plan in force and its validity, so a failover doesn't
+    // look like a stalled optimizer (no stall fallback after a takeover).
+    OptPlan opt = 23;
+    // kind `camp` (phase 8): a campaign's leader fence and replica (campaign lending).
+    Campaign camp = 24;
+  }
+}
+
+// Phase 8: a campaign agents are lent to, and its leader (routing.v1 CampaignOwner).
+message Campaign {
+  string id = 1;
+  // The leader's fence (its etcd create revision); a lower one is stale.
+  uint64 owner_epoch = 2;
+  // The leader's IE replica (AgentAvailability goes to its Watch stream).
+  string replica = 3;
+}
+
+// A skill requirement (routing.v1 SkillRequirement).
+message SkillReq {
+  // The skill.
+  string skill_id = 1;
+  // 0: any level.
+  uint32 min_level = 2;
+}
+
+// An unacknowledged Watch message: its delivery_seq and the serialized contract message
+// (routing.v1 WatchResponse in `out`, agents.v1 WatchResponse in `agent`).
+message OutMsg {
+  // delivery_seq.
+  uint64 seq = 1;
+  // The serialized WatchResponse.
+  bytes msg = 2;
+}
+
+// One queue of an agent's active (or pending) set.
+message Member {
+  // The queue.
+  string queue_id = 1;
+  // agents.v1 MembershipTier as RE's Tier: 1 primary, 2 secondary.
+  int32 tier = 2;
+  // Set by a supervisor's pin.
+  bool pinned = 3;
+  // Since when the queue has had this tier.
+  int64 since_ms = 4;
+}
+
+// A (queue, tier) pair of an optimizer plan or a pin.
+message QueueTier {
+  // The queue.
+  string queue_id = 1;
+  // 1 primary, 2 secondary.
+  int32 tier = 2;
+}
+
+// An agent (AgentSt).
+message Agent {
+  string id = 1;
+  // agents.v1 AgentState.
+  int32 state = 2;
+  string reason = 3;
+  // agents.v1 TargetState: what applies when the agent is free.
+  int32 pending = 4;
+  string pending_reason = 5;
+  int64 since_ms = 6;
+  // state_version.
+  uint64 version = 7;
+  int64 idle_since_ms = 8;
+  bool attached = 9;
+  string session_id = 10;
+  string replica = 11;
+  string contact = 12;
+  // attach_generation.
+  uint64 generation = 13;
+  int64 detached_at_ms = 14;
+  string offer_id = 15;
+  // Live reservations.
+  repeated string reservations = 16;
+  uint64 next_seq = 17;
+  repeated OutMsg unacked = 18;
+  repeated Member active = 19;
+  bool has_pending_set = 20;
+  repeated Member pending_set = 21;
+  // agents.v1 MembershipReason of the pending set.
+  int32 pending_set_reason = 22;
+  uint64 queues_version = 23;
+  uint64 active_version = 24;
+  uint64 active_version_busy = 25;
+  bool has_plan = 26;
+  repeated QueueTier plan = 27;
+  map<string, double> weights = 28;
+  // Optimizer or config moves of the last hour (the hourly cap).
+  repeated int64 move_times_ms = 29;
+  // Dwell: the last change of its primary queues, of its secondary queues.
+  int64 primary_since_ms = 30;
+  int64 secondary_since_ms = 31;
+  // A pin waiting for coverage.
+  bool retarget_due = 32;
+  // Phase 8 (campaign lending): the mode flag (empty: inbound; else the campaign it is lent to) and
+  // a pending switch (to to_campaign; empty: back to inbound) waiting for the agent to be idle.
+  string campaign = 33;
+  bool mode_pending = 34;
+  string to_campaign = 35;
+}
+
+// A queue entry (Entry).
+message Entry {
+  string id = 1;
+  string interaction_id = 2;
+  string queue_id = 3;
+  string first_queue_id = 4;
+  uint32 enqueue_seq = 5;
+  uint32 priority = 6;
+  repeated SkillReq reqs = 7;
+  int64 first_queued_at_ms = 8;
+  int64 ordering_at_ms = 9;
+  int64 queue_entered_at_ms = 10;
+  int64 created_at_ms = 11;
+  int64 original_ordering_at_ms = 12;
+  uint64 order_seq = 13;
+  // routing.v1 EntryState.
+  int32 state = 14;
+  bool escalated = 15;
+  bool overflow_due = 16;
+  string offer_id = 17;
+  string reservation_id = 18;
+  // agent -> skipped until (a reject).
+  map<string, int64> skips = 19;
+  bool delay_passed = 20;
+  // The serialized routing.v1 Target.
+  bytes target = 21;
+  string direct_agent = 22;
+  string consult_from = 23;
+  bool head = 24;
+  // A scheduled callback's entry.
+  string callback_id = 25;
+  // ConvertToCallback is being made durable (the callback is the `cb` whose entry_id is this id).
+  bool converting = 26;
+  bool callback_offered = 27;
+  // Phase 5 redesign: the VIP caller class (routing.v1 0.12.0 caller_class).
+  bool vip = 28;
+}
+
+// A live offer (Offer).
+message Offer {
+  string id = 1;
+  string agent_id = 2;
+  string entry_id = 3;
+  int64 expires_at_ms = 4;
+  // 0 none (direct), 1 primary, 2 secondary.
+  int32 tier = 5;
+}
+
+// A reservation (Reservation).
+message Reservation {
+  string id = 1;
+  string interaction_id = 2;
+  string entry_id = 3;
+  string agent_id = 4;
+  string contact = 5;
+  string queue_id = 6;
+  int64 deadline_ms = 7;
+  // 0 assigned, 1 connected, 2 wrap-up, 3 ended.
+  int32 st = 8;
+  // routing.v1 Outcome.
+  int32 outcome = 9;
+  bool connected_once = 10;
+  int64 connected_at_ms = 11;
+  int64 wrap_ends_ms = 12;
+  int64 ended_at_ms = 13;
+  // L7: since when the bound replica has had no stream.
+  int64 pause_since_ms = 14;
+  bool consult = 15;
+  bool direct = 16;
+  string callback_id = 17;
+  // Phase 8: a campaign call's reservation (ReserveAgent): the campaign.
+  string campaign = 18;
+}
+
+// An interaction (Interaction): owner, fences, delivery state, outbox.
+message Interaction {
+  string id = 1;
+  uint64 owner_epoch = 2;
+  string replica = 3;
+  string entry_id = 4;
+  repeated string past_entries = 5;
+  // Per enqueue_seq: the last serialized routing.v1 QueueEntry (repeats).
+  map<uint32, bytes> snaps = 6;
+  // Per enqueue_seq: the target key IE asked for.
+  map<uint32, string> seq_queue = 7;
+  uint32 max_enqueue_seq = 8;
+  uint64 next_seq = 9;
+  uint64 acked = 10;
+  repeated OutMsg unacked = 11;
+  repeated string reservations = 12;
+  int64 last_activity_ms = 13;
+  bool owner_lost = 14;
+  string callback_id = 15;
+}
+
+// A command result (Cmd).
+message Command {
+  string command_id = 1;
+  string fingerprint = 2;
+  int64 at_ms = 3;
+  bool has_error = 4;
+  // The canonical status code.
+  int32 error_code = 5;
+  string error_parity = 6;
+  string error_message = 7;
+  // The serialized response.
+  bytes response = 8;
+}
+
+// config.routing's per-queue part.
+message QueuePolicy {
+  string queue_id = 1;
+  double alpha = 2;
+  double beta = 3;
+  int32 min_agents = 4;
+  int32 max_agents = 5;
+  int64 secondary_delay_ms = 6;
+  int64 escalate_after_ms = 7;
+  // Phase 5 redesign (config.routing 0.12.0): lever (a)'s default weight and bounds, lever (c)'s
+  // SL target, the VIP class's threshold, importance and reserve.
+  double weight = 8;
+  double weight_min = 9;
+  double weight_max = 10;
+  int64 delay_min_ms = 11;
+  int64 delay_max_ms = 12;
+  double sl_target = 13;
+  int64 vip_sla_ms = 14;
+  double vip_alpha = 15;
+  double vip_beta = 16;
+  int32 vip_reserved_min = 17;
+}
+
+// config.routing's proficiency_speed step: agents at or above min_level work at this speed.
+message SpeedStep {
+  uint32 min_level = 1;
+  double speed = 2;
+}
+
+// The tenant's config.routing in force.
+message Plan {
+  uint64 version = 1;
+  // 0 off, 1 advise, 2 auto.
+  int32 mode = 2;
+  int64 dwell_min_ms = 3;
+  int32 max_moves_per_hour = 4;
+  int64 reject_skip_ms = 5;
+  repeated QueuePolicy queues = 6;
+  // 7 was the stopped phase-5 build's auto_eligible (never released).
+  reserved 7;
+  // Phase 5 redesign: VIP-eligible agents' skill and the proficiency -> speed steps.
+  string vip_skill = 8;
+  repeated SpeedStep proficiency_speed = 9;
+}
+
+// An agent's pin.
+message Pin {
+  string agent_id = 1;
+  // The newest pin or tombstone version seen.
+  uint64 version_seen = 2;
+  // A pin is in force (else only version_seen counts).
+  bool present = 3;
+  uint64 version = 4;
+  repeated QueueTier queues = 5;
+  repeated string exclusions = 6;
+  int64 until_ms = 7;
+  string reason_code = 8;
+}
+
+// A callback's routing state (CallbackRecord without its number).
+message Callback {
+  string callback_id = 1;
+  string original_interaction_id = 2;
+  string entry_id = 3;
+  string queue_id = 4;
+  uint32 priority = 5;
+  repeated SkillReq reqs = 6;
+  int64 first_queued_at_ms = 7;
+  int64 ordering_at_ms = 8;
+  // scheduled | dispatched | claimed | done | flagged.
+  string state = 9;
+  int32 attempt = 10;
+  string attempt_interaction_id = 11;
+  string reservation_id = 12;
+  string agent_id = 13;
+  string outcome = 14;
+  int64 due_at_ms = 15;
+  int64 created_at_ms = 16;
+  int64 updated_at_ms = 17;
+}
+
+// A queue's running statistics.
+message QueueStats {
+  string queue_id = 1;
+  double aht_ms = 2;
+  int64 bucket_start_ms = 3;
+  uint64 offered = 4;
+  uint64 answered = 5;
+  uint64 answered_in_sla = 6;
+  uint64 abandoned = 7;
+  uint64 overflowed = 8;
+  double wait_answered_ms = 9;
+  double handle_ms = 10;
+  uint64 handled = 11;
+  // Phase 5: EWMA of wrap-up alone (the forecaster's wrap-up).
+  double wrap_ms = 12;
+}
+
+// A tenant move's marker: everything the leaving bin wrote for the tenant comes before it.
+message Handover {
+  string tenant_id = 1;
+  // The epoch of tp/tenants/{tenant} that moved the tenant.
+  uint64 tenant_epoch = 2;
+  string from_bin = 3;
+  string to_bin = 4;
+}
+
+// A bin's incarnation: bumped by every new leader (attach generations and delivery sequences start
+// at (incarnation - 1) * 2^32 for objects the new leader creates).
+message Meta {
+  string bin = 1;
+  uint64 incarnation = 2;
+}
+
+// A new leader's barrier: once it reads its own fence in every partition it has read the topic to
+// the end.
+message Fence {
+  string bin = 1;
+  uint64 leader_epoch = 2;
+  // Unique per takeover.
+  string nonce = 3;
+}
+
+// Phase 5 redesign (PLAN §5.3, §6): the lever plan the writer holds and the levers it put in force
+// (a takeover restores them; no stall revert after a replay).
+message OptPlan {
+  // The plan's version (rises across leaders: a new optimizer starts above the version held).
+  uint64 version = 1;
+  int64 computed_at_ms = 2;
+  // Until then the plan is fresh; then config's weights and delays (PLAN §6).
+  int64 valid_until_ms = 3;
+  // model::Quality of the plan's worst queue (0 exact, 1 approx, 2 overloaded, 3 long).
+  uint32 quality = 4;
+  // 5 and 7 were the stopped build's login deficits and recovery flag (never released).
+  reserved 5, 7;
+  // 0 fresh (or none), 1 stale: config defaults in force.
+  int32 stage = 6;
+  repeated QueueLever applied = 8;
+}
+
+// A queue's lever (a) values a plan put in force.
+message QueueLever {
+  string queue_id = 1;
+  double weight = 2;
+  int64 delay_ms = 3;
+}

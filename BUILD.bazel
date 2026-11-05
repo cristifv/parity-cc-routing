@@ -1,0 +1,34 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+# Phases 5b+5c: the learned forecaster (libtorch) is OUT of the default binary until it is accepted;
+# `bazel build --define=forecaster=on //:parity-cc-routing` builds it in (--forecaster=on then works;
+# the binary needs libtorch's shared libraries at run time). Default: the phase-8 engine, baseline only.
+config_setting(
+    name = "with_forecaster",
+    define_values = {"forecaster": "on"},
+)
+
+# The routing engine's binary.
+cc_binary(
+    name = "parity-cc-routing",
+    srcs = ["src/main.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-deprecated-declarations"],
+    defines = select({
+        ":with_forecaster": ["PCR_WITH_FORECASTER"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//src/events",
+        "//src/ha",
+        "//src/opt",
+        "//src/ops",
+        "//src/server",
+        "//src/store",
+    ] + select({
+        ":with_forecaster": [
+            "//src/forecast:source",
+            "//src/forecast:torch_net",
+        ],
+        "//conditions:default": [],
+    }),
+)

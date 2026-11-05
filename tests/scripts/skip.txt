@@ -1,0 +1,4 @@
+# Scripts the runner doesn't play yet: <path under fixtures/>  <phase>  <reason>.
+# CI fails on a skip without a phase, and on a stale skip (a routing.v1 script that has a given now).
+# Since parity-contracts 0.11.0 (parity-cc-routing phases 3 and 4) every routing.v1 and agents.v1
+# script is executable and played: nothing is skipped.

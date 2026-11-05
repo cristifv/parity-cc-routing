@@ -1,0 +1,29 @@
+load("@grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache-2.0 (NOTICE)
+
+# etcd's v3 gRPC API (KV, Watch, Lease), vendored (PLAN §5.5: no third-party etcd C++ client).
+proto_library(
+    name = "etcd_proto",
+    srcs = [
+        "etcd/api/etcdserverpb/rpc.proto",
+        "etcd/api/mvccpb/kv.proto",
+    ],
+    strip_import_prefix = "/third_party/etcd",
+)
+
+cc_proto_library(
+    name = "etcd_cc_proto",
+    deps = [":etcd_proto"],
+)
+
+cc_grpc_library(
+    name = "etcd_cc_grpc",
+    srcs = [":etcd_proto"],
+    grpc_only = True,
+    deps = [":etcd_cc_proto"],
+)

@@ -1,0 +1,61 @@
+{
+  "bin": "bin-a",
+  "description": "Found by the invariant search (seed 24, I5), shrunk from size 65 to 19 in 27 runs: I5: initech-uk call waited 80965 ms in sales Cause: the checker judged I5 from IE's side, so an Overflow held back by an IE stream outage (and replayed on reconnect) counted as a wait past max_wait_s; I5 is now judged from the engine's own entry state (CR-086).",
+  "duration_s": 824,
+  "events": [
+    {
+      "at_s": 433.0,
+      "down_s": 32.4,
+      "kind": "ie_stream_lost"
+    }
+  ],
+  "expectations": {
+    "invariants": "all",
+    "rss_mib_max": 1024
+  },
+  "name": "regression-i5-seed-24",
+  "schema_version": 1,
+  "seed": 24,
+  "tenants": [
+    {
+      "agents": [],
+      "behaviour": {
+        "answer_delay": {
+          "cv": 0.8,
+          "kind": "lognormal",
+          "mean_s": 2.2
+        }
+      },
+      "id": "initech-uk",
+      "queues": [
+        {
+          "arrivals": {
+            "bucket_s": 300,
+            "kind": "profile",
+            "scale_per_hour": 113.4,
+            "shape": [
+              0.8,
+              0.7,
+              1.0
+            ]
+          },
+          "handle_time": {
+            "kind": "exponential",
+            "mean_s": 206.9
+          },
+          "id": "sales",
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "max_wait_s": 79,
+          "offer_timeout_s": 7,
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 103.4
+          },
+          "wrap_up_limit_s": 53
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"]
+
+# The network (libtorch): plain lane only.
+cc_test(
+    name = "torch_net_test",
+    size = "small",
+    srcs = ["torch_net_test.cc"],
+    copts = COPTS,
+    deps = [
+        "//src/forecast:torch_net",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# The learned source's policy with a scripted net (torch-free: every lane, sanitizers included):
+# every fallback trigger, hysteresis, shadow scoring, promotion, rejection, demotion, rollback,
+# the prediction error per source, the sanity window, tenants apart, concurrent tenants.
+cc_test(
+    name = "source_test",
+    size = "small",
+    srcs = ["source_test.cc"],
+    copts = COPTS,
+    deps = [
+        "//src/forecast:source",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# The shipped base model in the source (plain lane: libtorch).
+cc_test(
+    name = "base_model_test",
+    size = "small",
+    srcs = ["base_model_test.cc"],
+    copts = COPTS,
+    data = ["//model/forecast:base"],
+    deps = [
+        "//src/forecast:source",
+        "//src/forecast:torch_net",
+        "@googletest//:gtest_main",
+    ],
+)
+
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+# Evidence: inference ms (p50/p99/max) per tenant batch size on one intra-op thread.
+cc_binary(
+    name = "inference_bench",
+    srcs = ["inference_bench.cc"],
+    copts = COPTS + ["-O2"],
+    deps = ["//src/forecast:torch_net"],
+)

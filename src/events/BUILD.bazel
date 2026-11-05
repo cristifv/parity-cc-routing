@@ -1,0 +1,16 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 3: agent.events (PLAN §5.4) through librdkafka: one thread, a bounded buffer, drops counted.
+cc_library(
+    name = "events",
+    srcs = ["kafka_events.cc"],
+    hdrs = ["kafka_events.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/ops",
+        "@librdkafka",
+    ],
+)

@@ -1,0 +1,55 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"]
+
+# The learned short-term forecaster (PLAN §3.8, §5.9; phases 5b+5c merged). Torch-free policy code:
+# features and normalization, the Net interface, the OOD health monitor, scoring, the ForecastSource.
+# Built and tested in every lane (sanitizers included).
+cc_library(
+    name = "forecast",
+    srcs = [
+        "features.cc",
+        "net.cc",
+        "sha256.cc",
+    ],
+    hdrs = [
+        "features.h",
+        "net.h",
+        "sha256.h",
+    ],
+    copts = COPTS,
+    deps = ["@nlohmann_json//:json"],
+)
+
+# The learned source inside RE: inputs, the OOD health monitor with hysteresis, shadow scoring,
+# promotion and demotion, the prediction error per source (torch-free: the net is a fc::Net).
+cc_library(
+    name = "source",
+    srcs = ["source.cc"],
+    hdrs = ["source.h"],
+    copts = COPTS,
+    deps = [
+        ":forecast",
+        "//src/opt",
+        "//src/ops:log",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# The network in libtorch (inference, save/load with the sha256 check, training steps). Only the
+# binary, the trainer and their plain-lane tests link it.
+cc_library(
+    name = "torch_net",
+    srcs = ["model_file.cc", "torch_net.cc"],
+    hdrs = ["model_file.h", "torch_net.h"],
+    copts = COPTS,
+    # Private: libtorch's bundled google/protobuf headers would shadow grpc's protobuf in every
+    # dependent (the binary); its headers stay inside torch_net.cc and model_file.cc.
+    implementation_deps = ["@libtorch//:torch"],
+    deps = [
+        ":forecast",
+        ":source",
+    ],
+)

@@ -1,0 +1,85 @@
+{
+  "bin": "bin-a",
+  "description": "Found by the invariant search (seed 38, I6), shrunk from size 65 to 20 in 25 runs: I6: illegal transition 2->4 for initech-uk-g0-1 Cause: after a gateway disconnect the re-attach snapshot arrived before the replay of the offers the outage held back; the checker synthesized OFFERED from a stale offer; now ignored (CR-086).",
+  "duration_s": 267,
+  "events": [
+    {
+      "at_s": 179.7,
+      "down_s": 30.8,
+      "kind": "gateway_disconnect"
+    }
+  ],
+  "expectations": {
+    "invariants": "all",
+    "rss_mib_max": 1024
+  },
+  "name": "regression-i6-seed-38",
+  "schema_version": 1,
+  "seed": 38,
+  "tenants": [
+    {
+      "agents": [
+        {
+          "count": 7,
+          "id_prefix": "initech-uk-g2",
+          "queues": [
+            "billing"
+          ],
+          "shifts": [
+            {
+              "login_s": 177.7,
+              "logout_s": 478.5
+            }
+          ],
+          "site": "site-a",
+          "skills": {
+            "de": 5
+          }
+        }
+      ],
+      "behaviour": {
+        "p_ignore": 0.0,
+        "p_leg_failed": 0.0,
+        "wrap_up": {
+          "cv": 0.3,
+          "kind": "lognormal",
+          "mean_s": 46.5
+        }
+      },
+      "id": "initech-uk",
+      "queues": [
+        {
+          "arrivals": {
+            "bucket_s": 300,
+            "kind": "profile",
+            "scale_per_hour": 109.9,
+            "shape": [
+              0.6,
+              0.1,
+              0.9,
+              0.6
+            ]
+          },
+          "handle_time": {
+            "cv": 1.4,
+            "kind": "lognormal",
+            "mean_s": 10.4
+          },
+          "id": "billing",
+          "max_wait_action": {
+            "action": "flow_step",
+            "flow_step": "voicemail-menu"
+          },
+          "max_wait_s": 383,
+          "patience": {
+            "cv": 0.4,
+            "kind": "lognormal",
+            "mean_s": 331.4
+          },
+          "sla_s": 9,
+          "wrap_up_limit_s": 90
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+# The DES runs the real engine (pcr::Tenant), its invariants hold, and a small exponential case
+# agrees with the model (a smoke version of the §3.6 matrix, which runs optimized as evidence).
+cc_test(
+    name = "des_test",
+    size = "large",
+    srcs = ["des_test.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//model:ctmc",
+        "//sim:des",
+        "@googletest//:gtest_main",
+    ],
+)

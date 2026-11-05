@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- P1a (parity-deploy PLAN §10): one carrier call to freeswitch's carrier profile, G.711 PCMU
+     offer (the codec policy: G.711 end to end). The headers stand in for what opensips stamps
+     after looking the number up in its own map (opensips isn't in P1a). After the ACK SIPp
+     sends 440 Hz; the owner plays the 660 Hz prompt through parity-ms and hangs up; SIPp
+     answers the BYE. Keys: -key iid, -key tenant, -key bin. -->
+<!-- parity-cc-routing M1 e2e (scratch copy of p1a-call.xml): the caller queues, an agent takes the call, the caller hangs up after 30 s. -->
+<scenario name="parity-cc-routing e2e call">
+  <send retrans="500">
+    <![CDATA[
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:+447700900123@[local_ip]:[local_port]>;tag=p1aSIPpTag00[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: <sip:carrier@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      X-Interaction-ID: [iid]
+      X-Tenant-ID: [tenant]
+      X-CC-Bin: [bin]
+      X-CC-Trunk: carrier-a
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=carrier 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [media_port] RTP/AVP 0 101
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-16
+      a=ptime:20
+      a=sendrecv
+    ]]>
+  </send>
+  <recv response="100" optional="true"/>
+  <recv response="180" optional="true"/>
+  <recv response="183" optional="true"/>
+  <recv response="200" rtd="true" rrs="true"/>
+  <send>
+    <![CDATA[
+      ACK [next_url] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:+447700900123@[local_ip]:[local_port]>;tag=p1aSIPpTag00[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 1 ACK
+      Contact: <sip:carrier@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <nop><action><exec rtp_stream="/media/sipp-440hz.ulaw,-1,0"/></action></nop>
+  <pause milliseconds="30000"/>
+  <send retrans="500">
+    <![CDATA[
+      BYE [next_url] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:+447700900123@[local_ip]:[local_port]>;tag=p1aSIPpTag00[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Contact: <sip:carrier@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200" timeout="10000"/>
+</scenario>

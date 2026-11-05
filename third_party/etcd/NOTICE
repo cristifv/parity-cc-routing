@@ -1,0 +1,6 @@
+etcd/api/etcdserverpb/rpc.proto and etcd/api/mvccpb/kv.proto are reduced copies of the
+protocol definitions of etcd (https://github.com/etcd-io/etcd, api/etcdserverpb/rpc.proto and
+api/mvccpb/kv.proto), Copyright The etcd Authors, licensed under the Apache License, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0). Changes: only the KV, Watch and Lease services and
+their messages are kept; gogoproto and google.api options and imports are removed. Field numbers,
+names and packages are unchanged (wire compatible).

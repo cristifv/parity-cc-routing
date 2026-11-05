@@ -1,0 +1,19 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# gRPC services, Watch streams, the test control (PLAN §5.2, §8 1.3, 1.4).
+cc_library(
+    name = "server",
+    srcs = ["hub.cc", "services.cc", "test_control.cc"],
+    hdrs = ["hub.h", "services.h", "test_control.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],  # grpc 1.84 headers deprecate their own TLS types
+    deps = [
+        "//src/core",
+        "//src/ops",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+        "@parity_contracts//:agents_cc_grpc",
+        "@parity_contracts//:routing_cc_grpc",
+    ],
+)

@@ -1,0 +1,26 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Health, logs, metrics, the seed, the incarnation (PLAN §5.6, §8 1.5).
+cc_library(
+    name = "ops",
+    srcs = ["http.cc", "metrics.cc", "seed.cc", "state.cc"],
+    hdrs = ["http.h", "metrics.h", "seed.h", "state.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        ":log",
+        "//src/core",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phase 8: log-record.v1 (parity-contracts 0.13.0) and the shared masking rules, with no dependency
+# on the core, so the tenants' writers log their call-scoped events too.
+cc_library(
+    name = "log",
+    srcs = ["log.cc", "pii.cc"],
+    hdrs = ["log.h", "pii.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = ["@nlohmann_json//:json"],
+)

@@ -1,0 +1,29 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# -O2 even in fastbuild: Eigen templates are ~50x slower at -O0 (the oracle test took 4 min).
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"]
+
+# The CTMC library (PLAN §3): birth–death chains, uniformization, the tagged customer, the
+# fluid coupling. Runs on the optimization threads only, never on the real-time path.
+cc_library(
+    name = "ctmc",
+    srcs = ["agents.cc", "coupling.cc", "ctmc.cc"],
+    hdrs = ["agents.h", "coupling.h", "ctmc.h"],
+    copts = COPTS,
+    deps = ["@eigen"],
+)
+
+# The exact multi-queue oracle (tests only).
+cc_library(
+    name = "oracle",
+    testonly = True,
+    srcs = ["oracle.cc"],
+    hdrs = ["oracle.h"],
+    copts = COPTS,
+    deps = [
+        ":ctmc",
+        "@eigen",
+    ],
+)

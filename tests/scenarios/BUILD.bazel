@@ -1,0 +1,208 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations", "-Wno-unused-result"]
+
+DATA = [
+    "@parity_contracts//:VERSION",
+    "@parity_contracts//:routing_scenarios",
+]
+
+# The scenario runner and invariant checker (PLAN §7.1) as a library: the real engine through its
+# gRPC services and the test control; I1-I11 from the event log.
+cc_library(
+    name = "runner_lib",
+    testonly = True,
+    srcs = ["runner_lib.cc"],
+    hdrs = ["runner.h"],
+    copts = COPTS,
+    deps = [
+        "//src/opt",
+        "//src/server",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_binary(
+    name = "runner",
+    testonly = True,
+    srcs = ["runner_main.cc"],
+    copts = COPTS,
+    deps = [
+        ":runner_lib",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Every canonical routing-scenario.v1 file against the real engine; all invariants must hold.
+cc_test(
+    name = "scenarios_test",
+    size = "large",
+    srcs = ["runner_main.cc"],
+    args = ["--contracts=$(rootpath @parity_contracts//:VERSION)"],
+    copts = COPTS,
+    data = DATA,
+    deps = [":runner_lib"],
+)
+
+# Phase 2: the same set with --model-ewt on (the model's EWT in every answer; nothing else changes).
+cc_test(
+    name = "scenarios_model_ewt_test",
+    size = "large",
+    srcs = ["runner_main.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--model-ewt",
+    ],
+    copts = COPTS,
+    data = DATA,
+    deps = [":runner_lib"],
+)
+
+# CR-055: the checker isn't vacuous. Each run injects a known engine bug into a scenario and
+# passes only if the named invariant catches it.
+[cc_test(
+    name = "fault_%s_test" % fault,
+    size = "medium",
+    srcs = ["runner_main.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--scenario=%s" % scenario,
+        "--fault=%s@%s" % (fault, at_s),
+        "--expect-violation=%s" % invariant.split(":")[0],
+    ] + (["--expect-count=%s" % invariant.split(":")[1]] if ":" in invariant else []),
+    copts = COPTS,
+    data = DATA,
+    deps = [":runner_lib"],
+) for fault, scenario, at_s, invariant in [
+    # A waiting caller silently forgotten: IE still holds it, the engine has no entry.
+    ("drop_entry", "max-wait-actions", "300", "I3"),
+    # A READY agent missing from the longest-idle index: invisible to dispatch and the sweep.
+    ("unindex_agent", "quiet-day", "600", "I4"),
+    # CR-083's cleanup switched off: the restarted IE's calls stay held past their bound.
+    ("no_owner_loss", "ie-restart-alone", "0", "I3"),
+    # CR-100: the max-wait action runs but its Overflow never reaches IE. The scenario's flow-step
+    # queue (support) leaves the engine's queue at once, so only I5's IE-side bound sees it: the
+    # test requires that bound's own count (i5_ie_side), not just any I5 report.
+    ("drop_overflow", "max-wait-actions", "0", "I5:i5_ie_side"),
+]]
+
+# The invariant search (PLAN §7.1, phase 2): seeded random scenarios through the real engine,
+# deterministic (CR-049, checked on the first seeds); a failure is shrunk and printed (and saved to
+# the test's outputs) so it can become a regression file. The default CI tier runs 12 seeds (about
+# 2 minutes: the user's 5-minute rule, 2026-10-31); search_full_test (scripts/ci.sh --full) runs 40.
+cc_test(
+    name = "search_test",
+    size = "enormous",
+    srcs = ["search.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--seeds=1:12",
+        "--determinism=2",
+    ],
+    copts = COPTS,
+    data = DATA,
+    deps = [
+        ":runner_lib",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "search_full_test",
+    size = "enormous",
+    srcs = ["search.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--seeds=1:40",
+        "--determinism=3",
+    ],
+    copts = COPTS,
+    data = DATA,
+    tags = ["manual"],
+    deps = [
+        ":runner_lib",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# The shrinker works: with a planted bug (an entry dropped silently) the search must find failing
+# scenarios, shrink each to a small one that fails twice the same way, and that passes without the bug.
+cc_test(
+    name = "search_shrink_test",
+    size = "large",
+    srcs = ["search.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--seeds=1:4",
+        "--fault=drop_entry@120",
+        "--expect-find",
+        "--max-shrink-runs=120",
+    ],
+    copts = COPTS,
+    data = DATA,
+    deps = [
+        ":runner_lib",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# CI replays every regression file the search saved (they must pass on today's engine).
+cc_test(
+    name = "regressions_test",
+    size = "large",
+    srcs = ["runner_main.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--deterministic",
+        "--dir=tests/scenarios/regressions",
+    ],
+    copts = COPTS,
+    data = DATA + glob(["regressions/*.json"], allow_empty = True),
+    deps = [":runner_lib"],
+)
+
+# Scaled spike and shift-start (PLAN §6.1, CR-056): 5,000 agents, the largest scale whose spike fits
+# one 5-minute run (the user's rule, 2026-10-31; built -c opt, in the test sandbox: 206 s and 47 s,
+# 258 s in all, close to the cap). I9 as §6.1 states it, I10, every invariant and the files' KPI
+# bounds. scripts/ci.sh --full runs it with -c opt in the opt output base; manual otherwise.
+cc_test(
+    name = "scaled_test",
+    size = "enormous",
+    srcs = ["runner_main.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--dir=tests/scenarios/scaled",
+        "--check-every-ms=10000",
+        "--decision-p99-ms=5",
+        "--decision-max-ms=50",
+    ],
+    copts = COPTS,
+    data = DATA + glob(["scaled/*.json"], allow_empty = True),
+    tags = ["manual"],
+    deps = [":runner_lib"],
+)
+
+# Full scale (PLAN §6.1, CR-056): 10k agents, a 10x spike for 5 min; 10k logins in 20 s. I9 is
+# judged as §6.1 states it (offer decision p99 <= 5 ms, max <= 50 ms per shard). Manual and longer
+# than the 5-minute rule (CR-090): the spike alone takes about 6 minutes built -c opt. Run it as
+#   bazel --output_base=$HOME/.cache/bazel/parity-cc-routing-opt test -c opt --symlink_prefix=/ \
+#     //tests/scenarios:full_scale_test
+cc_test(
+    name = "full_scale_test",
+    size = "enormous",
+    srcs = ["runner_main.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--dir=tests/scenarios/full-scale",
+        "--check-every-ms=10000",
+        "--decision-p99-ms=5",
+        "--decision-max-ms=50",
+    ],
+    copts = COPTS,
+    data = DATA + glob(["full-scale/*.json"], allow_empty = True),
+    tags = ["manual"],
+    deps = [":runner_lib"],
+)

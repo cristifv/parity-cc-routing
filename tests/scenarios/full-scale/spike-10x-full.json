@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "name": "spike-10x-full",
+  "description": "PLAN \u00a76.1 at full scale (phase 2, CR-056): acme with 10,000 agents in 5 groups over 5 queues at the busy-day rate (0.85 x 10,000 / 180 s = 47 calls/s), then 10x for 5 minutes (470 calls/s); max_entries 1,000 per queue (5,000 entries), so queue_full refuses the rest. I9 (offer decision p99 <= 5 ms, max <= 50 ms per shard) and I10 (RSS <= 512 MiB) are judged",
+  "seed": 21,
+  "duration_s": 1500,
+  "bin": "bin-a",
+  "tenants": [
+    {
+      "id": "acme",
+      "queues": [
+        {
+          "id": "sales",
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "sla_s": 20,
+          "arrivals": {
+            "kind": "piecewise",
+            "bucket_s": 300,
+            "per_hour": [
+              34000
+            ],
+            "spikes": [
+              {
+                "start_s": 600,
+                "duration_s": 300,
+                "multiplier": 10,
+                "ramp_s": 30
+              }
+            ]
+          },
+          "handle_time": {
+            "kind": "lognormal",
+            "mean_s": 180,
+            "cv": 0.8
+          },
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 90
+          }
+        },
+        {
+          "id": "support",
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "sla_s": 20,
+          "arrivals": {
+            "kind": "piecewise",
+            "bucket_s": 300,
+            "per_hour": [
+              34000
+            ],
+            "spikes": [
+              {
+                "start_s": 600,
+                "duration_s": 300,
+                "multiplier": 10,
+                "ramp_s": 30
+              }
+            ]
+          },
+          "handle_time": {
+            "kind": "lognormal",
+            "mean_s": 180,
+            "cv": 0.8
+          },
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 90
+          }
+        },
+        {
+          "id": "billing",
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "sla_s": 20,
+          "arrivals": {
+            "kind": "piecewise",
+            "bucket_s": 300,
+            "per_hour": [
+              34000
+            ],
+            "spikes": [
+              {
+                "start_s": 600,
+                "duration_s": 300,
+                "multiplier": 10,
+                "ramp_s": 30
+              }
+            ]
+          },
+          "handle_time": {
+            "kind": "lognormal",
+            "mean_s": 180,
+            "cv": 0.8
+          },
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 90
+          }
+        },
+        {
+          "id": "tech",
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "sla_s": 20,
+          "arrivals": {
+            "kind": "piecewise",
+            "bucket_s": 300,
+            "per_hour": [
+              34000
+            ],
+            "spikes": [
+              {
+                "start_s": 600,
+                "duration_s": 300,
+                "multiplier": 10,
+                "ramp_s": 30
+              }
+            ]
+          },
+          "handle_time": {
+            "kind": "lognormal",
+            "mean_s": 180,
+            "cv": 0.8
+          },
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 90
+          }
+        },
+        {
+          "id": "retention",
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "disconnect"
+          },
+          "sla_s": 20,
+          "arrivals": {
+            "kind": "piecewise",
+            "bucket_s": 300,
+            "per_hour": [
+              34000
+            ],
+            "spikes": [
+              {
+                "start_s": 600,
+                "duration_s": 300,
+                "multiplier": 10,
+                "ramp_s": 30
+              }
+            ]
+          },
+          "handle_time": {
+            "kind": "lognormal",
+            "mean_s": 180,
+            "cv": 0.8
+          },
+          "patience": {
+            "kind": "exponential",
+            "mean_s": 90
+          }
+        }
+      ],
+      "agents": [
+        {
+          "count": 2000,
+          "id_prefix": "agent-sales",
+          "queues": [
+            "sales",
+            "support"
+          ],
+          "site": "site-a"
+        },
+        {
+          "count": 2000,
+          "id_prefix": "agent-support",
+          "queues": [
+            "support",
+            "billing"
+          ],
+          "site": "site-a"
+        },
+        {
+          "count": 2000,
+          "id_prefix": "agent-billing",
+          "queues": [
+            "billing",
+            "tech"
+          ],
+          "site": "site-a"
+        },
+        {
+          "count": 2000,
+          "id_prefix": "agent-tech",
+          "queues": [
+            "tech",
+            "retention"
+          ],
+          "site": "site-b"
+        },
+        {
+          "count": 2000,
+          "id_prefix": "agent-retention",
+          "queues": [
+            "retention",
+            "sales"
+          ],
+          "site": "site-b"
+        }
+      ],
+      "behaviour": {
+        "answer_delay": {
+          "kind": "fixed",
+          "s": 2
+        },
+        "wrap_up": {
+          "kind": "exponential",
+          "mean_s": 15
+        },
+        "p_reject": 0.01
+      }
+    }
+  ],
+  "expectations": {
+    "invariants": "all",
+    "rss_mib_max": 512,
+    "must_occur": [
+      "queue_full"
+    ],
+    "kpi": [
+      {
+        "tenant": "acme",
+        "queue": "sales",
+        "metric": "max_wait_s",
+        "max": 302
+      },
+      {
+        "tenant": "acme",
+        "queue": "support",
+        "metric": "max_wait_s",
+        "max": 302
+      },
+      {
+        "tenant": "acme",
+        "queue": "billing",
+        "metric": "max_wait_s",
+        "max": 302
+      },
+      {
+        "tenant": "acme",
+        "queue": "tech",
+        "metric": "max_wait_s",
+        "max": 302
+      },
+      {
+        "tenant": "acme",
+        "queue": "retention",
+        "metric": "max_wait_s",
+        "max": 302
+      }
+    ]
+  }
+}

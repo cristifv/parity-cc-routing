@@ -1,0 +1,36 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+# Phase 3 against a real Postgres: scripts/store-it.sh (the Store tests skip without one; StoreDown
+# needs none). Manual tag: the default CI tier runs it through store-it.sh.
+cc_test(
+    name = "pg_store_it",
+    size = "medium",
+    srcs = ["pg_store_it.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/store",
+        "@googletest//:gtest_main",
+        "@postgres//:libpq",
+    ],
+)
+
+# Phases 5b+5c against a real Postgres (scripts/store-it.sh): the trainer's tenant isolation, the
+# model table's roles and trigger, a rollback, and `trainer finetune` writing a candidate.
+cc_test(
+    name = "trainer_it",
+    size = "medium",
+    srcs = ["trainer_it.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    data = [
+        "//model/forecast:base",
+        "//src/trainer:parity-cc-routing-trainer",
+    ],
+    env = {"PCR_TRAINER_BIN": "src/trainer/parity-cc-routing-trainer"},
+    deps = [
+        "//src/forecast",
+        "//src/trainer:tenant_db",
+        "@googletest//:gtest_main",
+        "@postgres//:libpq",
+    ],
+)

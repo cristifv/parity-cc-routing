@@ -1,0 +1,4 @@
+package(default_visibility = ["//visibility:public"])
+
+# The single-queue golden table (phase 1.0 capture): a sanity check of the CTMC solver only.
+exports_files(["single_queue_v1.csv"])

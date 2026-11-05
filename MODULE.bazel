@@ -1,0 +1,58 @@
+# parity-cc-routing: the routing engine (the routing-engine role; PLAN.md §1, §5.8).
+# Dependency rule (PLAN §5.8): the newest Bazel Central Registry release at least 14 days old,
+# unless an OSV advisory says otherwise; scripts/ci.sh re-checks ages and OSV.
+module(name = "parity_cc_routing", version = "0.1.0")
+
+bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "grpc", version = "1.84.0")
+bazel_dep(name = "protobuf", version = "35.1")
+bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
+# Phase 2 (PLAN §3.7): the CTMC oracle's sparse solvers, the coupling's small dense algebra, tests.
+# 5.0.1.bcr.2 (2026-07-07) is the newest release at least 14 days old (5.0.1.bcr.3 is 2026-10-26).
+# Header-only, MPL-2.0; the archive's sha256 is in the registry's source.json and MODULE.bazel.lock.
+bazel_dep(name = "eigen", version = "5.0.1.bcr.2")
+# Phase 3 (PLAN §8 row 3): libpq for callbacks, voicemail tasks and routing_bucket_actuals. 18.4
+# (2026-06-09) is the newest BCR release at least 14 days old; built against grpc's BoringSSL
+# (.bazelrc: --@postgres//:with_ssl=boringssl), so one TLS library is linked. OSV: scripts/ci.sh.
+bazel_dep(name = "postgres", version = "18.4")
+# Phase 3 (PLAN §5.4): agent.events through librdkafka. 2.15.0.bcr.1 (2026-10-05) is the newest
+# BCR release at least 14 days old; built without its own TLS and curl (.bazelrc): the local stack's
+# Redpanda is plaintext; SASL/TLS to the shared brokers is CR-110 (BEFORE DEPLOY).
+bazel_dep(name = "librdkafka", version = "2.15.0.bcr.1")
+# googletest 1.18 needs abseil 20260526 (compatibility level 0), which grpc 1.84 can't take.
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
+
+# The contracts (parity.routing.v1, parity.agents.v1) compiled from the sibling checkout with a
+# BUILD file this repo owns (parity-contracts README: consumers build from the plain directory).
+# Pinned (CR-063): the build fails unless the checkout's VERSION is this release; a contracts
+# release moves this line with IE's, the gateway's and parity-store's pin lines.
+parity_contracts_repository = use_repo_rule("//third_party:contracts.bzl", "parity_contracts_repository")
+
+parity_contracts_repository(
+    name = "parity_contracts",
+    build_file = "//third_party:parity_contracts.BUILD",
+    path = "../parity-contracts",
+    version = "0.17.1",
+)
+
+# Bazel 9's bazel_tools needs rules_swift 3.x; grpc 1.84 asks for 2.5 (Apple-only rules, never
+# loaded on Linux). Pin the one Bazel needs.
+single_version_override(module_name = "rules_swift", version = "3.1.2")
+
+# Phase 5b+5c (PLAN §5.9): CPU-only libtorch for the learned forecaster (//src/forecast) and the
+# trainer. 2.14.1 (2026-09-30) is the newest release at least 14 days old (2.15.0 is 2026-10-28);
+# OSV: no advisory for torch 2.14.1 (scripts/ci.sh re-checks). Prebuilt shared libraries (cxx11 ABI);
+# only //src/forecast, //src/trainer and their tests link them: //src/opt and the sanitizer lanes
+# stay torch-free. ~128 MB download, ~480 MB unpacked (libtorch_cpu.so ~438 MB).
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "libtorch",
+    build_file = "//third_party:libtorch.BUILD",
+    sha256 = "0f02329a5266153cffa9dc12926ff2221fa626207b894d40bd61905cc2079821",
+    strip_prefix = "libtorch",
+    urls = [
+        "https://download-r2.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.14.1%2Bcpu.zip",
+        "https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.14.1%2Bcpu.zip",
+    ],
+)

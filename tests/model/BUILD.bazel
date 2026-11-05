@@ -1,0 +1,19 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+# PLAN §7 "CTMC numerics": closed forms, the golden table, mass, monotonicity, edge cases,
+# uniformization vs a dense expm, Fox–Glynn vs direct weights, tagged waits vs simulated, the
+# coupling's agent conservation and the N-design oracle (with the non-conserving negative test).
+cc_test(
+    name = "ctmc_test",
+    size = "medium",
+    srcs = ["ctmc_test.cc"],
+    args = ["$(rootpath //tests/golden:single_queue_v1.csv)"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"],
+    data = ["//tests/golden:single_queue_v1.csv"],
+    deps = [
+        "//model:ctmc",
+        "//model:oracle",
+        "@eigen",
+        "@googletest//:gtest",
+    ],
+)

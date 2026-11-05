@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+# The learned forecaster's shared base model (PLAN §5.9): trained once on parity-contracts'
+# synthetic catalogue only (no tenant data), by `parity-cc-routing-trainer base`. base.json holds
+# its config, sha256 (checked before the bytes are parsed), envelope, PSI reference and evidence.
+filegroup(
+    name = "base",
+    srcs = ["base.json", "base.pt"],
+)

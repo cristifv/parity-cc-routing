@@ -1,0 +1,24 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+# The G5 script runner against the real engine (PLAN §8 1.4).
+cc_test(
+    name = "scripts_test",
+    size = "medium",
+    srcs = ["runner.cc"],
+    args = [
+        "--contracts=$(rootpath @parity_contracts//:VERSION)",
+        "--skips=$(rootpath skip.txt)",
+    ],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],
+    data = [
+        "skip.txt",
+        "@parity_contracts//:VERSION",
+        "@parity_contracts//:agents_scripts",
+        "@parity_contracts//:routing_scripts",
+    ],
+    deps = [
+        "//src/server",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+    ],
+)

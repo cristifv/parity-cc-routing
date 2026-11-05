@@ -1,0 +1,47 @@
+# parity-interaction-engine in local-dev (compose profile `app`, PLAN.md §5, P1). Schema: IE step 4
+# (config/parity-interaction-engine.example.toml; unknown keys are an error). Host network,
+# loopback only. The state directory is the container's /tmp (a tmpfs): the healthy file there is
+# compose's health check. No secret here: the CDR password is a file mounted read-only.
+[service]
+zone = "local"
+bin = "bin-a"
+replica_id = "ie-local-1"
+
+[management]
+listen = "127.0.0.1:9600"
+
+[lifecycle]
+deregistration_delay_ms = 500
+drain_timeout_ms = 3000
+
+[telephony]
+profile = "demo"          # dev, demo or test until TC step 8 (production is refused)
+test_peer_header = true   # x-parity-test-peer until TC has mTLS (TC step 8); local-* only
+[[telephony.nodes]]
+id = "media-1"
+grpc = "http://127.0.0.1:9700"
+management = "127.0.0.1:9701"
+
+[etcd]
+endpoint = "http://127.0.0.1:2379"
+lease_ttl_s = 10
+
+[tenants]
+maps_file = "/etc/parity-interaction-engine/tenants.json"
+allow_test_data = true    # the shared test tenants carry a `test` section; never outside local-*
+
+[flows]
+file = "/etc/parity-interaction-engine/flows.json"
+
+[cdr]
+host = "127.0.0.1"
+port = 5432
+user = "parity_ie"
+dbname = "parity_interaction_engine"
+password_file = "/run/secrets/ie_cdr_postgres_password"
+migrate = true            # dev, demo and test only
+
+# parity-cc-routing M1 end-to-end (the coordinator, 2026-10-28): routing on, to the real RE.
+[routing]
+enabled = true
+endpoint = "http://127.0.0.1:9800"

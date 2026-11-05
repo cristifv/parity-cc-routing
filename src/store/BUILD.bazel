@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 3: Postgres (libpq) for callbacks, voicemail tasks and routing_bucket_actuals (PLAN §8 row 3).
+cc_library(
+    name = "store",
+    srcs = ["pg_store.cc"],
+    hdrs = ["pg_store.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/ops",
+        "@nlohmann_json//:json",
+        "@postgres//:libpq",
+    ],
+)

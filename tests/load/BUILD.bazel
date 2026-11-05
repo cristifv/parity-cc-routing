@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 7 load (PLAN §7 "Load", §8 row 7): run by tests/load/run.sh against the real RE binary
+# (built -c opt), never by the default CI tier (each scenario is a <= 5 min shell run on an idle host).
+cc_binary(
+    name = "load_driver",
+    srcs = ["driver.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],
+    deps = [
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+        "@parity_contracts//:agents_cc_grpc",
+        "@parity_contracts//:routing_cc_grpc",
+    ],
+)

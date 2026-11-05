@@ -1,0 +1,127 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_test(
+    name = "tenant_test",
+    size = "medium",
+    srcs = ["tenant_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# CR-052: the masking port passes parity-contracts' cross-language cases.
+cc_test(
+    name = "pii_test",
+    size = "small",
+    srcs = ["pii_test.cc"],
+    args = ["$(rootpath @parity_contracts//:masking_cases)"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    data = ["@parity_contracts//:masking_cases"],
+    deps = [
+        "//src/ops",
+        "@googletest//:gtest",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phase 2: the model's EWT behind --model-ewt (off by default), plans from the optimization
+# threads, tenant isolation of plans, the boundary.
+cc_test(
+    name = "model_ewt_test",
+    size = "small",
+    srcs = ["model_ewt_test.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//model:ctmc",
+        "//src/core",
+        "//src/opt",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Phase 4: active sets, tiers, pins, moves, coverage, forced states (PLAN §4).
+cc_test(
+    name = "moves_test",
+    size = "small",
+    srcs = ["moves_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Phase 3, RE side, without Postgres: direct, consult, head, the callback lifecycle, buckets.
+cc_test(
+    name = "phase3_test",
+    size = "small",
+    srcs = ["phase3_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Phase 6 (PLAN §5.5, §7): replaying re.state into an empty memory gives the same state; the
+# restored tenant carries on (timers re-armed); no change goes unmarked; tenant isolation of records.
+cc_test(
+    name = "replay_test",
+    size = "medium",
+    srcs = ["replay_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/state:state_cc_proto",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Phase 5 redesign: VIP callers, lever (b) in the dispatch, lever plans in the writer, the stall rule,
+# re.state of the levers, the per-agent model, lever (a)/(c), the forecast interface, the events, the
+# bounded gateway outbox and per-tenant quarantine. Change tracking and paranoid mode on.
+cc_test(
+    name = "phase5_test",
+    size = "medium",
+    srcs = ["phase5_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"],
+    deps = [
+        "//model:ctmc",
+        "//src/core",
+        "//src/opt",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phase 8: campaign lending (IE step 13a): no inbound offer to a lent agent, switches only when idle
+# or after wrap-up, coverage refused, tenant isolation, the leader's fence, a takeover keeps it all.
+cc_test(
+    name = "lending_test",
+    size = "small",
+    srcs = ["lending_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/state:state_cc_proto",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Phases 5b+5c: the arrival guard and the early snapshot (a spike changes the forecast in use within
+# 1 s of virtual time), the pooled-AHT rule for a learned source (CR-180), the 10 s bucket counts.
+cc_test(
+    name = "forecaster_test",
+    size = "medium",
+    srcs = ["forecaster_test.cc", "world.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"],
+    deps = [
+        "//model:ctmc",
+        "//src/core",
+        "//src/forecast:source",
+        "//src/opt",
+        "@googletest//:gtest_main",
+    ],
+)

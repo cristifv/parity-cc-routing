@@ -1,0 +1,30 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 6 chaos (PLAN §7): run by tests/chaos/run.sh against real RE instances, a local etcd and a
+# local Redpanda (scripts/local-ha.sh). Not Bazel tests: each scenario is a <= 5 min shell run.
+cc_binary(
+    name = "chaos_driver",
+    srcs = ["driver.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],
+    deps = [
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+        "@parity_contracts//:agents_cc_grpc",
+        "@parity_contracts//:routing_cc_grpc",
+    ],
+)
+
+cc_binary(
+    name = "state_check",
+    srcs = ["state_check.cc"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"],
+    deps = [
+        "//src/core",
+        "//src/ops",
+        "//src/state:kafka_state",
+        "//src/state:state_cc_proto",
+        "@nlohmann_json//:json",
+    ],
+)

@@ -1,0 +1,20 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"]
+
+# The real-time layer: tenants, dispatch, timers, shards (PLAN §4.2, §5.1). No gRPC, no I/O.
+# Phase 6: the commit gate (gate.h) and the tenants' re.state records (tenant_state.cc).
+cc_library(
+    name = "core",
+    srcs = ["engine.cc", "gate.cc", "tenant.cc", "tenant_lending.cc", "tenant_state.cc", "types.cc"],
+    hdrs = ["engine.h", "gate.h", "model_feed.h", "tenant.h", "types.h"],
+    copts = COPTS,
+    deps = [
+        "//src/ops:log",
+        "//src/state:state_cc_proto",
+        "@parity_contracts//:agents_cc_proto",
+        "@parity_contracts//:routing_cc_proto",
+    ],
+)

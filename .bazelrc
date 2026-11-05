@@ -1,0 +1,20 @@
+common --enable_bzlmod
+build --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
+build --repo_env=CC=gcc
+build --incompatible_strict_action_env
+# libpq links grpc's BoringSSL, not a second TLS library (MODULE.bazel, phase 3).
+build --@postgres//:with_ssl=boringssl
+# librdkafka without OpenSSL and curl (one TLS library; CR-110 for broker TLS).
+build --@librdkafka//:with_ssl=false --@librdkafka//:with_curl=false
+test --test_output=errors
+# Sanitizers (scripts/ci.sh): clang's compiler-rt (this host has no GCC sanitizer runtimes); ci.sh
+# runs them in their own output bases so switching compilers never invalidates the gcc build.
+build:asan --repo_env=CC=clang --copt=-fsanitize=address,undefined --linkopt=-fsanitize=address,undefined --copt=-fno-omit-frame-pointer --copt=-fno-sanitize-recover=all
+build:asan --strip=never --copt=-O1 --copt=-g1
+build:tsan --repo_env=CC=clang --copt=-fsanitize=thread --linkopt=-fsanitize=thread --copt=-fno-omit-frame-pointer --strip=never --copt=-O1
+# Warnings are errors in the gcc build; clang 21 adds its own (e.g. googletest's char8_t printers).
+build:asan --per_file_copt=.*@-Wno-error
+build:tsan --per_file_copt=.*@-Wno-error
+# Sanitizer runs use their own output bases (scripts/ci.sh): keep bazel-bin/bazel-testlogs on the gcc build.
+build:asan --symlink_prefix=/
+build:tsan --symlink_prefix=/

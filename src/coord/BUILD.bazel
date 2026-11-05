@@ -1,0 +1,18 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 6 (PLAN §5.1, §5.5): the etcd lease, the leader election per bin, the tp/tenants/ watch,
+# through etcd's v3 gRPC API (vendored protos in third_party/etcd).
+cc_library(
+    name = "coord",
+    srcs = ["coordinator.cc"],
+    hdrs = ["coordinator.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],
+    deps = [
+        "//src/ops",
+        "//third_party/etcd:etcd_cc_grpc",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
+    ],
+)

@@ -1,0 +1,97 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter"]
+
+# The discrete-event simulator (PLAN §3.6): drives //src/core's real dispatch on a virtual clock.
+cc_library(
+    name = "des",
+    srcs = ["des.cc"],
+    hdrs = ["des.h"],
+    copts = COPTS,
+    deps = ["//src/core"],
+)
+
+# The §3.6 scenario matrix: the model against the DES, with seeded replications and 95 % CIs.
+# Run optimized (scripts/phase2-evidence.sh): bazel run -c opt //sim:matrix -- --out=<dir>
+cc_binary(
+    name = "matrix",
+    srcs = ["matrix.cc"],
+    copts = COPTS,
+    deps = [
+        ":des",
+        "//model:ctmc",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# The §3.5 compute budget per tick (SMB, mid, enterprise) and the 2,000-tenant bin estimate.
+cc_binary(
+    name = "budget",
+    srcs = ["budget.cc"],
+    copts = COPTS,
+    deps = [
+        "//model:ctmc",
+        "//src/opt",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phase 5 redesign: the closed loop (the real optimizer's levers acting on the DES every 10 s) against
+# static config weights and plain longest idle, on J.
+cc_binary(
+    name = "closed_loop",
+    srcs = ["closed_loop.cc"],
+    copts = COPTS,
+    deps = [
+        ":des",
+        "//src/core",
+        "//src/opt",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phases 5b+5c (PLAN §5.9): routing-scenario.v1 arrivals as a rate function (spike decay, level
+# steps, overdispersion, bursts, bots), shared by the series DES and the forecaster's OOD runner.
+cc_library(
+    name = "arrivals",
+    srcs = ["arrivals.cc"],
+    hdrs = ["arrivals.h"],
+    copts = COPTS + ["-O2"],
+    deps = ["@nlohmann_json//:json"],
+)
+
+# The series DES: a training sample (or an OOD scenario's normal history) -> the forecaster's
+# series at 10 s / 1 min / 15 min (c-server queues with patience, redials, data faults).
+cc_library(
+    name = "series",
+    srcs = ["series.cc"],
+    hdrs = ["series.h"],
+    copts = COPTS + ["-O2"],
+    deps = [
+        ":arrivals",
+        "@nlohmann_json//:json",
+    ],
+)
+
+# Phases 5b+5c: the forecaster's OOD suite (parity-contracts scenarios/forecast-ood/) on the routing
+# DES with the real optimizer: forecaster vs baseline-only vs a perfect-forecast oracle. Evidence:
+#   bazel run -c opt //sim:forecast_ood -- --contracts=$PWD/../parity-contracts --model=$PWD/model/forecast --out=<dir>
+cc_binary(
+    name = "forecast_ood",
+    srcs = ["forecast_ood.cc"],
+    copts = COPTS + ["-O2"],
+    data = ["//model/forecast:base"],
+    deps = [
+        ":arrivals",
+        ":des",
+        ":series",
+        "//src/core",
+        "//src/forecast:source",
+        "//src/forecast:torch_net",
+        "//src/opt",
+        "@nlohmann_json//:json",
+    ],
+)

@@ -1,0 +1,19 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Phase 6 (PLAN §5.5): a bin's leader or standby: takeover, restart, tenant moves.
+cc_library(
+    name = "ha",
+    srcs = ["node.cc"],
+    hdrs = ["node.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-deprecated-declarations"],
+    deps = [
+        "//src/coord",
+        "//src/core",
+        "//src/ops",
+        "//src/state:kafka_state",
+        "//src/state:state_cc_proto",
+        "//src/store",
+    ],
+)

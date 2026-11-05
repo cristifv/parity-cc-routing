@@ -1,0 +1,652 @@
+{
+  "schema_version": 1,
+  "service": "parity-cc-routing",
+  "description": "parity-cc-routing's log events (log-record.v1, parity-contracts 0.13.0), owned here since phase 8. Started from logging/examples/events.parity-cc-routing.v1.json. The common events (service.*, config.*, log.dropped, dependency.*) come from logging/events.common.v1.json. Call-scoped events carry the xsid (the interaction id) and tenant_id; scripts/ci.sh validates a scenario run's records with contract-check --catalogue.",
+  "events": {
+    "agent.lend_refused": {
+      "description": "Campaign lending: an agent was not lent because it would leave an open queue uncovered (attrs.reason coverage).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "campaign_id",
+        "reason"
+      ]
+    },
+    "agent.mode_changed": {
+      "description": "Campaign lending: the agent switched between inbound and campaign (attrs.reason: lent, returned, logged_out); also on agent.events as mode_changed.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "campaign_id",
+        "reason"
+      ],
+      "transition": true
+    },
+    "agent.selected": {
+      "description": "RE chose an agent for a caller (the next step is offer.sent). decision: the candidates (READY agents that could take it, longest idle first) with their tier and idle time; on one offer in 100 at info (sampled), never otherwise.",
+      "levels": [
+        "debug",
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "entry_id",
+        "agent_id"
+      ],
+      "decision": true,
+      "sample_rate": 0.01
+    },
+    "agent.state_changed": {
+      "description": "An agent's routing state moved (from_state, to_state: logged_out, not_ready, ready, offered, reserved, on_call, wrap_up).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id",
+        "agent_id"
+      ],
+      "transition": true
+    },
+    "callback.dispatched": {
+      "description": "RE sent RunCallback: IE places the callback's call (its own xsid; parent_xsid is the call that asked for it).",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "parent_xsid",
+        "reservation_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "callback_id"
+      ]
+    },
+    "callbacks.loaded": {
+      "description": "A tenant's open callbacks were loaded from Postgres (attrs.open).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "open"
+      ]
+    },
+    "campaign.reserved": {
+      "description": "Campaign lending (phase 8): the campaign's leader reserved a lent agent for this campaign call (ReserveAgent).",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "reservation_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "campaign_id"
+      ]
+    },
+    "entry.dequeued": {
+      "description": "IE took the entry out of its queue without an agent (attrs.reason: abandoned, transferred, callback, voicemail, ended, ...); duration_ms is the time in the queue.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "entry_id"
+      ],
+      "attrs": [
+        "reason"
+      ]
+    },
+    "entry.enqueued": {
+      "description": "A caller joined a queue (or a direct or consult target): the entry RE made for IE's Enqueue. attrs: enqueue_seq, priority, the EnqueueReason, the position and VIP.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "entry_id",
+        "leader_epoch",
+        "owner_epoch"
+      ],
+      "attrs": [
+        "enqueue_seq",
+        "reason"
+      ]
+    },
+    "entry.overflowed": {
+      "description": "The entry reached its queue's max wait: the overflow action (attrs.action) goes to IE as Overflow.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "queue_id",
+        "entry_id"
+      ],
+      "attrs": [
+        "action"
+      ]
+    },
+    "forecast.fallback": {
+      "description": "Phases 5b+5c: the learned forecaster stopped driving a queue and the baseline stands (attrs.reason: no_model, stale, above_range, drift, ratio, width, realized_error, nan, negative, slow); logged on each entry into the fallback, not per evaluation.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "tenant_id",
+        "queue_id"
+      ],
+      "attrs": [
+        "reason"
+      ]
+    },
+    "forecast.model_demoted": {
+      "description": "Phases 5b+5c: the model in use was worse than the baseline over 24 h: a fine-tuned model is demoted (the tenant falls back to the base model), the base model is set aside for the tenant (the baseline then).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "version",
+        "model_wape",
+        "baseline_wape"
+      ]
+    },
+    "forecast.model_loaded": {
+      "description": "Phases 5b+5c: a forecaster model was loaded (version 0: the shared base model at startup; else a tenant's active model from routing_forecast_model).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "version",
+        "sha256",
+        "parameters"
+      ]
+    },
+    "forecast.model_promoted": {
+      "description": "Phases 5b+5c: a tenant's candidate beat the baseline and the model in use by >= 5 % WAPE over its shadow window and became active.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "version",
+        "candidate_wape",
+        "baseline_wape"
+      ]
+    },
+    "forecast.model_rejected": {
+      "description": "Phases 5b+5c: a tenant's candidate did not beat both after its shadow window (or saw too few calls) and was rejected.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "version",
+        "candidate_wape",
+        "baseline_wape"
+      ]
+    },
+    "forecast.source_changed": {
+      "description": "Phases 5b+5c: the forecast a queue's CTMC uses changed source (from_state/to_state: model or the baseline's ewma, ewma_profile, config_default), after the hysteresis.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id",
+        "queue_id"
+      ],
+      "transition": true
+    },
+    "inbox.refused": {
+      "description": "Requests refused UNAVAILABLE by the shards' inbox limits (attrs.count since the last record).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "count"
+      ]
+    },
+    "leader.elected": {
+      "description": "This replica won its bin's election (leader_epoch: the leader key's create revision).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "bin",
+        "leader_epoch"
+      ]
+    },
+    "leader.lost": {
+      "description": "Leadership lost: the process exits so it restarts as a standby.",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "bin",
+        "error"
+      ]
+    },
+    "leader.seen": {
+      "description": "The bin's leader key changed (attrs.leader: its gRPC address, or none).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "bin"
+      ],
+      "attrs": [
+        "leader"
+      ]
+    },
+    "leader.stepped_down": {
+      "description": "This replica stepped down (error.message: why).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "bin",
+        "leader_epoch",
+        "error"
+      ]
+    },
+    "model.refused": {
+      "description": "Phases 5b+5c: a forecaster model was refused before use (attrs.reason: missing, bad_metadata, bad_config, sha256, sha256_pin, config, archive, nonfinite, written_by): the base model at startup (exit 2) or a tenant's row (skipped, counted).",
+      "levels": [
+        "warn",
+        "error"
+      ],
+      "requires": [
+        "error"
+      ],
+      "attrs": [
+        "version",
+        "reason"
+      ]
+    },
+    "model.rolled_back": {
+      "description": "parity-cc-routing-trainer rollback: the active model retired and the previous version re-activated.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "from_version",
+        "to_version"
+      ]
+    },
+    "model.written": {
+      "description": "parity-cc-routing-trainer finetune: a candidate row was inserted for the tenant (version, sha256, the holdout WAPE against the baseline).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "version",
+        "sha256",
+        "h1_wape_model",
+        "h1_wape_baseline",
+        "queues"
+      ]
+    },
+    "offer.accepted": {
+      "description": "The agent accepted: a reservation exists, Assigned goes to IE; duration_ms is the caller's time in the queue.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "agent_id",
+        "reservation_id"
+      ]
+    },
+    "offer.expired": {
+      "description": "The offer timed out: the agent goes not ready (missed_offer); the caller keeps its place and is offered on.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "agent_id",
+        "entry_id"
+      ],
+      "attrs": [
+        "offer_id"
+      ]
+    },
+    "offer.rejected": {
+      "description": "The agent rejected the offer, or went not ready or logged out while offered (attrs.answered false); the caller is offered on.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "agent_id",
+        "entry_id"
+      ],
+      "attrs": [
+        "offer_id"
+      ]
+    },
+    "offer.revoked": {
+      "description": "RE withdrew the offer (the caller left, the agent's desktop detached): the agent is READY again, no penalty.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "agent_id",
+        "entry_id"
+      ],
+      "attrs": [
+        "offer_id",
+        "reason"
+      ]
+    },
+    "offer.sent": {
+      "description": "An offer went to the agent's gateway session (agents.v1 Offer). attrs: the offer id, its timeout and the tier.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "agent_id",
+        "entry_id"
+      ],
+      "attrs": [
+        "offer_id",
+        "timeout_ms"
+      ]
+    },
+    "owner.lost": {
+      "description": "The call's IE owner is gone (L18: no stream and no RPC, or nothing acknowledged): its entry and reservations are cleaned up.",
+      "levels": [
+        "warn"
+      ],
+      "call_scoped": true,
+      "attrs": [
+        "replica"
+      ]
+    },
+    "owner.lost_calls": {
+      "description": "Calls cleaned up because their IE owner was gone (attrs.count since the last record; owner.lost has each call).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "count"
+      ]
+    },
+    "request.refused": {
+      "description": "An RPC was refused (error.code: the contract's code; op: the RPC); one record per (op, code) a second, the rest counted in repeat_count (CR-069).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "op",
+        "error"
+      ],
+      "dedup": {
+        "window_ms": 1000,
+        "key": [
+          "op"
+        ]
+      }
+    },
+    "reservation.expired": {
+      "description": "No outcome by the assignment's deadline + 2 s (L7): RE revoked it and the caller is back in its queue.",
+      "levels": [
+        "warn"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "reservation_id",
+        "agent_id"
+      ]
+    },
+    "reservation.reported": {
+      "description": "IE reported how the assignment went (attrs.outcome: connected, agent_no_answer, caller_gone, ...); the first outcome wins.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "reservation_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "outcome"
+      ]
+    },
+    "startup.refused": {
+      "description": "The process refused to start (a flag, the state dir, a port, HA): error.message says why; it exits 1 or 2.",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "error"
+      ]
+    },
+    "state.fenced": {
+      "description": "re.state's transactional producer is fenced and the topic read to the end (a takeover's first step).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "init_transactions_ms",
+        "fence_ms"
+      ]
+    },
+    "state.flush_incomplete": {
+      "description": "The drain ended before everything was committed to re.state.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "bin"
+      ]
+    },
+    "store.statement_failed": {
+      "description": "A Postgres statement failed (attrs.sqlstate).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "error"
+      ],
+      "attrs": [
+        "sqlstate"
+      ]
+    },
+    "store.write_fenced": {
+      "description": "A callback write or load was fenced: a newer owner holds the tenant in Postgres.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "tenant_id"
+      ]
+    },
+    "stream.closed_slow": {
+      "description": "Watch streams closed for a slow consumer; they replay on reconnect (attrs.count since the last record).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "count"
+      ]
+    },
+    "sweep.matched": {
+      "description": "The 1 s safety sweep made offers dispatch had missed: a bug (attrs.count since the last record).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "count"
+      ]
+    },
+    "takeover.done": {
+      "description": "A new leader rebuilt every tenant from re.state and serves (attrs.takeover_ms, records, tenants).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "bin",
+        "leader_epoch"
+      ],
+      "attrs": [
+        "takeover_ms",
+        "records",
+        "tenants"
+      ]
+    },
+    "tenant.arrived": {
+      "description": "A tenant arrived from another bin and was rebuilt from re.state (attrs.records, handover).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id"
+      ],
+      "attrs": [
+        "tenant_epoch",
+        "records",
+        "handover"
+      ]
+    },
+    "tenant.assignment_ignored": {
+      "description": "tp/tenants: a tenant's key was deleted or unreadable; the last assignment stands.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "tenant_id"
+      ]
+    },
+    "tenant.handover_missing": {
+      "description": "A tenant arrived without the leaving bin's handover (waited 5 s).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "tenant_id"
+      ]
+    },
+    "tenant.moved_away": {
+      "description": "A tenant moved to another bin: the handover is written (attrs.target_bin, tenant_epoch).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "tenant_id",
+        "bin"
+      ],
+      "attrs": [
+        "target_bin",
+        "tenant_epoch"
+      ]
+    },
+    "trainer.finished": {
+      "description": "parity-cc-routing-trainer: the base model was written (sha256, steps, validation loss, the holdout WAPE of H1 and H2 for the model and the baseline).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "mode",
+        "sha256",
+        "steps",
+        "val_loss",
+        "h1_wape_model",
+        "h1_wape_baseline",
+        "h2_wape_model",
+        "h2_wape_baseline"
+      ]
+    },
+    "trainer.progress": {
+      "description": "parity-cc-routing-trainer: every 500 steps, the training loss (EMA) and the validation loss.",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "phase",
+        "steps",
+        "loss",
+        "val_loss",
+        "elapsed_s"
+      ]
+    },
+    "trainer.refused": {
+      "description": "parity-cc-routing-trainer: a run stopped (no database, the base model refused, the tenant's history unreadable, a model that can't be serialized).",
+      "levels": [
+        "warn",
+        "error"
+      ],
+      "requires": [
+        "error"
+      ]
+    },
+    "trainer.started": {
+      "description": "parity-cc-routing-trainer (phases 5b+5c): a base or fine-tune run started (attrs.mode).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "mode",
+        "threads",
+        "minutes"
+      ]
+    },
+    "wrap_up.ended": {
+      "description": "The agent's wrap-up ended (attrs.ended_by: agent or limit); WrapUpEnded goes to IE, the disposition to agent.events.",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "reservation_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "ended_by"
+      ]
+    },
+    "wrap_up.started": {
+      "description": "IE's CallEnded: the agent's wrap-up started (attrs.ends_in_ms: the limit).",
+      "levels": [
+        "info"
+      ],
+      "call_scoped": true,
+      "requires": [
+        "reservation_id",
+        "agent_id"
+      ],
+      "attrs": [
+        "ends_in_ms"
+      ]
+    }
+  }
+}

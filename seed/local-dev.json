@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "description": "parity-cc-routing phase-1 seed for local-dev and local-prodlike: the shared test tenants (parity-contracts tenants/test-tenants.v1.json), each in its deployment bin, two queues (sales overflows to support after 5 min; support disconnects after 10 min), the shared agent ids (the gateway's dev-token subjects). Test data only. Phase 4: each tenant's config.routing (mode off: every member queue primary) until admin-console publishes config.routing / config.routing_pin.",
+  "tenants": [
+    {
+      "id": "acme",
+      "bin": "bin-a",
+      "reject_skip_s": 30,
+      "assignment_deadline_s": 30,
+      "grace_s": 60,
+      "queues": [
+        {
+          "id": "sales",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 20,
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "queue",
+            "queue_id": "support"
+          }
+        },
+        {
+          "id": "support",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 30,
+          "max_wait_s": 600,
+          "max_wait_action": {
+            "action": "disconnect"
+          }
+        }
+      ],
+      "agents": [
+        {
+          "id": "agent-a1",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-a2",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-a3",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        }
+      ],
+      "routing": {
+        "tenant_id": "acme",
+        "version": 1,
+        "mode": "off",
+        "dwell_min_s": 300,
+        "max_moves_per_hour": 4,
+        "queues": [
+          {
+            "queue_id": "sales",
+            "secondary_delay_s": 10
+          },
+          {
+            "queue_id": "support",
+            "secondary_delay_s": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "globex",
+      "bin": "bin-b",
+      "reject_skip_s": 30,
+      "assignment_deadline_s": 30,
+      "grace_s": 60,
+      "queues": [
+        {
+          "id": "sales",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 20,
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "queue",
+            "queue_id": "support"
+          }
+        },
+        {
+          "id": "support",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 30,
+          "max_wait_s": 600,
+          "max_wait_action": {
+            "action": "disconnect"
+          }
+        }
+      ],
+      "agents": [
+        {
+          "id": "agent-g1",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-g2",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-g3",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        }
+      ],
+      "routing": {
+        "tenant_id": "globex",
+        "version": 1,
+        "mode": "off",
+        "dwell_min_s": 300,
+        "max_moves_per_hour": 4,
+        "queues": [
+          {
+            "queue_id": "sales",
+            "secondary_delay_s": 10
+          },
+          {
+            "queue_id": "support",
+            "secondary_delay_s": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "initech-de",
+      "bin": "bin-a",
+      "reject_skip_s": 30,
+      "assignment_deadline_s": 30,
+      "grace_s": 60,
+      "queues": [
+        {
+          "id": "sales",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 20,
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "queue",
+            "queue_id": "support"
+          }
+        },
+        {
+          "id": "support",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 30,
+          "max_wait_s": 600,
+          "max_wait_action": {
+            "action": "disconnect"
+          }
+        }
+      ],
+      "agents": [
+        {
+          "id": "agent-i1",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-i2",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        }
+      ],
+      "routing": {
+        "tenant_id": "initech-de",
+        "version": 1,
+        "mode": "off",
+        "dwell_min_s": 300,
+        "max_moves_per_hour": 4,
+        "queues": [
+          {
+            "queue_id": "sales",
+            "secondary_delay_s": 10
+          },
+          {
+            "queue_id": "support",
+            "secondary_delay_s": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "initech-uk",
+      "bin": "bin-c",
+      "reject_skip_s": 30,
+      "assignment_deadline_s": 30,
+      "grace_s": 60,
+      "queues": [
+        {
+          "id": "sales",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 20,
+          "max_wait_s": 300,
+          "max_wait_action": {
+            "action": "queue",
+            "queue_id": "support"
+          }
+        },
+        {
+          "id": "support",
+          "priority": 50,
+          "offer_timeout_s": 15,
+          "wrap_up_limit_s": 60,
+          "sla_s": 30,
+          "max_wait_s": 600,
+          "max_wait_action": {
+            "action": "disconnect"
+          }
+        }
+      ],
+      "agents": [
+        {
+          "id": "agent-i3",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        },
+        {
+          "id": "agent-i4",
+          "queues": [
+            "sales",
+            "support"
+          ]
+        }
+      ],
+      "routing": {
+        "tenant_id": "initech-uk",
+        "version": 1,
+        "mode": "off",
+        "dwell_min_s": 300,
+        "max_moves_per_hour": 4,
+        "queues": [
+          {
+            "queue_id": "sales",
+            "secondary_delay_s": 10
+          },
+          {
+            "queue_id": "support",
+            "secondary_delay_s": 10
+          }
+        ]
+      }
+    }
+  ]
+}

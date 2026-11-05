@@ -1,0 +1,39 @@
+# parity-cc-routing M1 end-to-end: an override of parity-deploy/compose/compose.yml (scratch only;
+# parity-deploy is not edited). Adds the routing engine (one service, a state volume: the
+# single-instance and restart rules), points IE at it with [routing] enabled, and swaps SIPp's
+# scenario for a caller that queues and hangs up after 30 s.
+services:
+  parity-cc-routing:
+    profiles: [app]
+    image: docker.io/library/fedora@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
+    pull_policy: never
+    network_mode: host
+    user: "${PARITY_UID:?run scripts/preflight.sh}:${PARITY_GID:?run scripts/preflight.sh}"
+    cap_drop: [ALL]
+    security_opt: [label=disable, "no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp:mode=1777"]
+    entrypoint: ["/usr/local/bin/parity-cc-routing"]
+    command: ["--env=local-dev", "--bin=bin-a", "--seed=/etc/parity-cc-routing/seed.json",
+              "--state-dir=/var/lib/parity-cc-routing", "--listen=127.0.0.1:${RE_GRPC_PORT:-9800}",
+              "--ops-listen=127.0.0.1:${RE_OPS_PORT:-9810}", "--shards=2"]
+    volumes:
+      - <e2e dir>/parity-cc-routing:/usr/local/bin/parity-cc-routing:ro
+      - /home/cristifg/Repos/parity-contact-center/parity-cc-routing/seed/local-dev.json:/etc/parity-cc-routing/seed.json:ro
+      - <e2e dir>/re-state:/var/lib/parity-cc-routing
+    healthcheck:
+      test: ["CMD", "/usr/bin/test", "-f", "/tmp/parity-cc-routing.healthy"]
+      interval: 1s
+      retries: 60
+
+  interaction-engine:
+    image: localhost/parity-interaction-engine:cr-e2e
+    volumes:
+      - <e2e dir>/ie.toml:/etc/parity-interaction-engine/ie.toml:ro
+    depends_on:
+      # The phase-1 restart rule: a restart of RE restarts IE.
+      parity-cc-routing: {condition: service_healthy, restart: true}
+
+  sipp:
+    volumes:
+      - <e2e dir>/sipp:/scen:ro

@@ -1,0 +1,49 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+COPTS = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"]
+
+# The trainer's data (torch-free): series -> normalization, examples, the holdout evaluation
+# against the baseline (opt::Forecaster).
+cc_library(
+    name = "data",
+    srcs = ["data.cc"],
+    hdrs = ["data.h"],
+    copts = COPTS,
+    deps = [
+        "//sim:series",
+        "//src/forecast",
+        "//src/opt",
+    ],
+)
+
+# One tenant's history and model rows (libpq; RLS + WHERE tenant_id = $1, the trainer's role).
+cc_library(
+    name = "tenant_db",
+    srcs = ["tenant_db.cc"],
+    hdrs = ["tenant_db.h"],
+    copts = COPTS,
+    deps = [
+        ":data",
+        "//src/ops:log",
+        "@postgres//:libpq",
+    ],
+)
+
+# parity-cc-routing-trainer (PLAN §5.9): base | finetune | rollback. Never inside RE.
+cc_binary(
+    name = "parity-cc-routing-trainer",
+    srcs = ["main.cc"],
+    copts = COPTS,
+    deps = [
+        ":data",
+        ":tenant_db",
+        "//sim:series",
+        "//src/forecast",
+        "//src/forecast:torch_net",
+        "//src/ops:log",
+        "@nlohmann_json//:json",
+    ],
+)

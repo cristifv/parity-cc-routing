@@ -1,0 +1,19 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# The optimization layer (PLAN §5.1, §5.3). Phase 2: the model's EWT per queue and requirement
+# signature, computed on its own threads from the writers' snapshots and posted back as plans.
+# Phase 5 (redesign): the baseline forecaster and its ForecastSource interface, the levers, lever plans and the
+# parity.staffing / queue.events / parity.forecast events.
+cc_library(
+    name = "opt",
+    srcs = ["events.cc", "forecast.cc", "levers.cc", "optimizer.cc"],
+    hdrs = ["events.h", "forecast.h", "levers.h", "optimizer.h"],
+    copts = ["-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O2"],
+    deps = [
+        "//model:ctmc",
+        "//src/core",
+        "@nlohmann_json//:json",
+    ],
+)
